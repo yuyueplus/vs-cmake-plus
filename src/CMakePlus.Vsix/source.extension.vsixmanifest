@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="CMakePlus.938571db-9a2f-4a93-8ef3-eec85d081a21" Version="0.8.2" Language="en-US" Publisher="CMakePlus" />
+    <Identity Id="CMakePlus.938571db-9a2f-4a93-8ef3-eec85d081a21" Version="0.8.3" Language="en-US" Publisher="CMakePlus" />
     <DisplayName>CMake Plus</DisplayName>
     <Description xml:space="preserve">File system and CMake target views, source management, project creation, previews, undo, and recovery. Experimental release.</Description>
   </Metadata>

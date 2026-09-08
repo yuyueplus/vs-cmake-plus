@@ -17,7 +17,7 @@
     <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
     <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
     <VsixType>v3</VsixType>
-    <Version>0.8.2</Version>
+    <Version>0.8.3</Version>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Design" />

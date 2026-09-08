@@ -28,6 +28,7 @@ public sealed partial class ExplorerControl
     private readonly DispatcherTimer searchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
     private CancellationTokenSource? searchCancellation;
     private bool fileOperationRunning;
+    private string configurationRequestError = "";
     private string? dragPath;
     private Point dragStart;
     private FrameworkElement? emptyWorkspaceView;
@@ -314,6 +315,7 @@ public sealed partial class ExplorerControl
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         pendingConfiguration = changedAt;
+        configurationRequestError = "";
         UpdateModelBadge();
         var source = root;
         try
@@ -326,15 +328,22 @@ public sealed partial class ExplorerControl
             var command = dte.Commands.Cast<Command>().FirstOrDefault(c =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                return c.Name?.EndsWith(".GenerateCache", StringComparison.OrdinalIgnoreCase) == true;
+                return string.Equals(c.Name, "Project.ConfigureCache", StringComparison.OrdinalIgnoreCase);
             });
-            if (command == null || !command.IsAvailable) throw new InvalidOperationException("VS Generate Cache is currently unavailable.");
+            if (command == null || !command.IsAvailable) throw new InvalidOperationException("VS Project > Configure is currently unavailable.");
             dte.ExecuteCommand(command.Name);
             status.Text = "Changes saved. VS cache generation requested; targets will refresh when configuration succeeds. Check CMake Output if it fails.";
         }
         catch (Exception ex)
         {
-            status.Text = "Changes saved. " + ex.Message + " Use VS Project > Generate Cache, then Load CMake Targets.";
+            configurationRequestError = "Changes saved. " + ex.Message + " Use Retry VS Configuration or VS Project > Configure, then Load CMake Targets.";
+            status.Text = configurationRequestError;
         }
+    }
+
+    private async Task RetryConfigurationAsync()
+    {
+        if (fileOperationRunning || root.Length == 0) return;
+        await RequestConfigurationAsync(pendingConfiguration ?? DateTime.UtcNow);
     }
 }

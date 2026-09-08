@@ -194,7 +194,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
                 if (workspaceNode != null) await workspaceNode.RefreshAsync(all ? null : new HashSet<string>(dirty, StringComparer.OrdinalIgnoreCase));
                 if (searchBox.Text.Length > 0) await SearchAsync();
                 if (followWorkspace.IsChecked != true) await ReadTargetsAsync();
-                if (pendingConfiguration.HasValue) status.Text = "CMake script saved. Waiting for VS configuration. Reconfigure in VS if it does not start automatically.";
+                if (pendingConfiguration.HasValue) status.Text = configurationRequestError.Length > 0 ? configurationRequestError : "Waiting for VS configuration. Use Retry VS Configuration if it does not start; check CMake Output for errors.";
                 else if (snapshot != null) status.Text = "Files synchronized. Model from " + snapshot.GeneratedUtc.ToLocalTime().ToString("HH:mm:ss") + (stale ? "; save modified scripts, reconfigure, and reload targets." : ". Snapshot of the last successful configuration.");
                 ShowFileDetails();
             }
@@ -247,6 +247,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
     {
         searchCancellation?.Cancel();
         pendingConfiguration = null;
+        configurationRequestError = "";
         generation++; snapshot = null; stale = true; replyStamp = "";
         inputFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readRevision++; indexCancellation?.Cancel(); sourceIndex = null;
@@ -309,7 +310,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
             var checkedModel = snapshot;
             if (checkedModel != null && await Task.Run(checkedModel.HasChangedInputs) && ReferenceEquals(snapshot, checkedModel))
             {
-                stale = true; status.Text = "Configuration inputs changed. Waiting for VS to reconfigure.";
+                stale = true; status.Text = configurationRequestError.Length > 0 ? configurationRequestError : "Configuration inputs changed. Use Retry VS Configuration; check CMake Output for errors.";
             }
         }
         catch (Exception ex) { if (!disposed && revision == contextRevision) { stale = true; Report(ex); } }
@@ -353,10 +354,11 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
             var item = new MenuItem { Header = label };
             item.Click += (s, e) => RunUi(action);
             item.ToolTip = "Wait for VS configuration to finish before editing targets.";
-            menu.Opened += (s, e) => item.IsEnabled = pendingConfiguration == null && !fileOperationRunning && root.Length > 0 && (!needsTarget || (snapshot != null && targets.IsVisible && SelectedTarget != null));
+            menu.Opened += (s, e) => item.IsEnabled = !fileOperationRunning && root.Length > 0 && (!needsTarget || (snapshot != null && targets.IsVisible && SelectedTarget != null));
             menu.Items.Add(item);
         }
         Add("New Source File…", NewSourceAsync); Add("New Target…", NewTargetAsync);
+        Add("Retry VS Configuration", RetryConfigurationAsync);
         menu.Items.Add(new Separator());
         Add("Add Existing Files…", () => EditMembershipAsync(true), true);
         Add("Remove Target References…", () => EditMembershipAsync(false), true);
@@ -454,11 +456,16 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
             if (disposed || (fileOperationRunning && !operationPreflight) || read != readRevision || ticket != generation || revision != contextRevision || build != buildBox.Text) return;
             if (!Paths.Equal(root, result.SourceDirectory)) throw new InvalidOperationException("The build directory belongs to another source root. Select another directory.");
             snapshot = result; stale = changedInputs;
-            if (!changedInputs && pendingConfiguration.HasValue && result.GeneratedUtc >= pendingConfiguration.Value) pendingConfiguration = null;
+            if (!changedInputs && pendingConfiguration.HasValue && result.GeneratedUtc >= pendingConfiguration.Value)
+            {
+                pendingConfiguration = null;
+                configurationRequestError = "";
+            }
             inputFiles = new HashSet<string>(result.Inputs, StringComparer.OrdinalIgnoreCase);
             configurations.ItemsSource = result.Configurations;
             configurations.SelectedItem = (followWorkspace.IsChecked == true ? result.Configurations.FirstOrDefault(c => c.Name == activeBuildConfiguration) : null) ?? result.Configurations.FirstOrDefault();
             status.Text = "Loaded " + result.Configurations.Count + " configurations · " + result.GeneratedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") + (stale ? ". Configuration inputs changed. Reconfigure the project." : ". Snapshot of the last successful configuration.");
+            if (pendingConfiguration.HasValue && configurationRequestError.Length > 0) status.Text = configurationRequestError;
             replyWatcher?.Dispose();
             replyWatcher = new FileSystemWatcher(System.IO.Path.Combine(build, ".cmake", "api", "v1", "reply"), "index-*.json");
             replyWatcher.Created += (s, args) => QueueRefresh(false);
@@ -559,7 +566,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         try
         {
-            if (pendingConfiguration.HasValue) throw new InvalidOperationException("Waiting for VS to reconfigure after saving CMake changes. If automatic configuration is disabled, reconfigure in VS first.");
+            if (pendingConfiguration.HasValue || stale) await ReadTargetsAsync();
             var config = configurations.SelectedItem as CMakeConfiguration;
             var model = snapshot;
             var revision = contextRevision;
@@ -583,14 +590,14 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
             await EnsureFreshModelAsync();
             if (!ReferenceEquals(model, snapshot) || revision != contextRevision)
                 throw new InvalidOperationException("The workspace or model changed during preview. Try again with the latest model.");
-            ApplyAndSave(editor, plan);
+            await ApplyAndSaveAsync(editor, plan);
         }
         catch (Exception ex) { ReportOperationError("New Source File", ex); }
     }
     private async Task EnsureFreshModelAsync()
     {
         if (pendingConfiguration.HasValue || stale) await ReadTargetsCoreAsync(true);
-        if (pendingConfiguration.HasValue) throw new InvalidOperationException("Waiting for VS configuration. Reconfigure in VS if automatic configuration is disabled.");
+        if (pendingConfiguration.HasValue) throw new InvalidOperationException(configurationRequestError.Length > 0 ? configurationRequestError : "Waiting for a successful VS configuration. Use Retry VS Configuration from the CMake Plus menu, then try again. Check CMake Output for errors.");
         stale |= changes.Invalidated;
         var model = snapshot; var revision = contextRevision;
         if (model == null || stale) throw new InvalidOperationException("Save scripts, reconfigure in VS, and load the latest targets first.");
@@ -605,11 +612,11 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
         if (new PreviewDialog(plan.Preview) { Owner = Window.GetWindow(this) }.ShowDialog() != true) return;
         await EnsureFreshModelAsync();
         if (!ReferenceEquals(model, snapshot) || revision != contextRevision) throw new InvalidOperationException("The workspace or model changed during preview. Try again.");
-        ApplyAndSave(editor, plan);
+        await ApplyAndSaveAsync(editor, plan);
     }
-    private void ApplyAndSave(VsScriptEdit editor, TargetEditPlan plan)
+    private async Task ApplyAndSaveAsync(VsScriptEdit editor, TargetEditPlan plan)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         if (editor.HasUnsavedEdits && MessageBox.Show(Window.GetWindow(this), "This CMake script already contains unsaved edits. Apply Changes will save those edits together with this operation. Continue?", "Save Existing Edits", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         editor.Apply(plan);
         stale = true;
@@ -618,7 +625,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
         catch (Exception ex) { QueueRefresh(true); throw new IOException("Changes were applied but the script could not be saved. Save it manually, then reconfigure in VS. " + ex.Message, ex); }
         pendingConfiguration = savedAfter;
         QueueRefresh(true); UpdateModelBadge();
-        status.Text = "CMake script saved. Waiting for VS configuration; targets will refresh automatically. If it does not start, reconfigure in VS.";
+        await RequestConfigurationAsync(savedAfter);
     }
     private async Task EditMembershipAsync(bool add)
     {

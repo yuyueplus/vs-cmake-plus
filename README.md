@@ -1,6 +1,8 @@
 # CMake Plus
 
-面向 Visual Studio 2022 / 2026 的 CMake 项目管理增强插件，当前为 **0.8.2 实验版**。
+面向 Visual Studio 2022 / 2026 的 CMake 项目管理增强插件，当前为 **0.8.3 实验版**。
+
+0.8.3 将配置命令改为在 VS 2022 Keyboard 命令列表核实的 `Project.ConfigureCache`。新建与文件操作统一请求配置；增加 Retry VS Configuration，保留命令失败提示，新建菜单不再因等待状态变灰（提交仍检查最新模型）。已在当前 VS 工程通过原生 Project > Configure 验证 Loaded 状态恢复；新版自动调用尚未在主机部署验证。
 
 0.8.2 修复删除前模型刷新被文件操作锁跳过的问题，并在等待配置期间定时重查模型。新增真实 CMake 新建同名目标后再次删除回归检查。VS 界面的等待状态解除仍需实际验证。
 
@@ -63,7 +65,7 @@
 .\scripts\test.ps1 -Integration
 ```
 
-安装包输出到 `artifacts/release/CMakePlus-0.8.2.vsix`。
+安装包输出到 `artifacts/release/CMakePlus-0.8.3.vsix`。
 运行 `.\scripts\performance.ps1` 可复测一万和十万真实文件，结果与适用范围见 [性能验证](docs/performance.md)。测试会在 `artifacts/performance` 创建共 110,000 个空文件。
 集成测试会在 `artifacts/tests/` 创建独立样例，不修改 `samples/hello`。
 
