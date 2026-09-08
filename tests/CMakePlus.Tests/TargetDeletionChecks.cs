@@ -57,6 +57,19 @@ internal static class TargetDeletionChecks
             var recreate = TargetEditing.NewTarget(root, script, "my_target", "my_target", "STATIC",
                 fresh.Configurations.SelectMany(c => c.Targets).Select(t => t.Name), File.ReadAllText(script));
             check(recreate.NewFiles.Count > 0, "删除并刷新模型后允许预览同名目标");
+            TargetEditing.CreateFiles(recreate);
+            File.WriteAllText(script, recreate.After, utf8);
+            var savedAt = File.GetLastWriteTimeUtc(script);
+            run(cmake, new[] { "-S", root, "-B", build });
+            var recreatedModel = CMakeFileApi.Read(build);
+            check(!recreatedModel.HasChangedInputs() && recreatedModel.GeneratedUtc >= savedAt,
+                "新建目标后完成配置的模型满足解除等待条件");
+            var deleteAgain = FileOperations.PlanTargetDirectoryDelete(recreatedModel, directory);
+            FileOperations.ApplyDelete(deleteAgain, (p, d) => Directory.Move(p, Path.Combine(parent, "recreated-target")));
+            run(cmake, new[] { "-S", root, "-B", build });
+            check(!Directory.Exists(directory) && CMakeFileApi.Read(build).Configurations.All(c => c.Targets.All(t => t.Name != "my_target")),
+                "新建同名目标后可再次删除并重新配置");
+            File.WriteAllText(script, plan.Scripts[0].After, utf8);
         }
         Directory.Move(recycled, directory); FileOperations.Recover(journal);
         check(File.ReadAllText(script) == text && File.Exists(childScript), "还原目标目录后恢复全部依赖");

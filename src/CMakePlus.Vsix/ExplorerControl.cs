@@ -300,7 +300,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
                 return file.Name + ":" + file.Length + ":" + file.LastWriteTimeUtc.Ticks;
             });
             if (disposed || revision != contextRevision || followWorkspace.IsChecked != true) return;
-            if (stamp != replyStamp || snapshot == null)
+            if (stamp != replyStamp || snapshot == null || pendingConfiguration.HasValue)
             {
                 await ReadTargetsAsync();
                 if (snapshot != null) replyStamp = stamp;
@@ -435,9 +435,13 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
         }
         catch (Exception ex) { Report(ex); }
     }
-    private async Task ReadTargetsAsync()
+    private Task ReadTargetsAsync() => ReadTargetsCoreAsync(false);
+
+    // Preflight owns the operation lock but has not changed any files yet.
+    // Background refresh stays blocked while an operation is running.
+    private async Task ReadTargetsCoreAsync(bool operationPreflight)
     {
-        if (fileOperationRunning) return;
+        if (fileOperationRunning && !operationPreflight) return;
         var build = buildBox.Text; int ticket = generation; int revision = contextRevision; int read = ++readRevision;
         readCancellation?.Cancel(); readCancellation?.Dispose();
         readCancellation = new CancellationTokenSource();
@@ -447,7 +451,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
             var source = root;
             var result = await Task.Run(() => { WorkspacePaths.ValidateCache(source, build); return CMakeFileApi.Read(build, cancellation); }, cancellation);
             var changedInputs = await Task.Run(result.HasChangedInputs);
-            if (disposed || fileOperationRunning || read != readRevision || ticket != generation || revision != contextRevision || build != buildBox.Text) return;
+            if (disposed || (fileOperationRunning && !operationPreflight) || read != readRevision || ticket != generation || revision != contextRevision || build != buildBox.Text) return;
             if (!Paths.Equal(root, result.SourceDirectory)) throw new InvalidOperationException("The build directory belongs to another source root. Select another directory.");
             snapshot = result; stale = changedInputs;
             if (!changedInputs && pendingConfiguration.HasValue && result.GeneratedUtc >= pendingConfiguration.Value) pendingConfiguration = null;
@@ -585,7 +589,7 @@ public sealed partial class ExplorerControl : UserControl, IDisposable
     }
     private async Task EnsureFreshModelAsync()
     {
-        if (pendingConfiguration.HasValue || stale) await ReadTargetsAsync();
+        if (pendingConfiguration.HasValue || stale) await ReadTargetsCoreAsync(true);
         if (pendingConfiguration.HasValue) throw new InvalidOperationException("Waiting for VS configuration. Reconfigure in VS if automatic configuration is disabled.");
         stale |= changes.Invalidated;
         var model = snapshot; var revision = contextRevision;
