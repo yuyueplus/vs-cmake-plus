@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable">
+  <Extern href="stdidcmd.h" /><Extern href="vsshlids.h" />
+  <Commands package="guidPackage">
+    <Groups><Group guid="guidCommands" id="MainGroup" priority="0x0600"><Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" /></Group></Groups>
+    <Buttons>
+      <Button guid="guidCommands" id="ShowExplorer" priority="0x0100" type="Button"><Parent guid="guidCommands" id="MainGroup" /><Strings><ButtonText>CMake Plus</ButtonText></Strings></Button>
+      <Button guid="guidCommands" id="CreateProject" priority="0x0101" type="Button"><Parent guid="guidCommands" id="MainGroup" /><Strings><ButtonText>Create CMake Project…</ButtonText></Strings></Button>
+    </Buttons>
+  </Commands>
+  <Symbols>
+    <GuidSymbol name="guidPackage" value="{938571db-9a2f-4a93-8ef3-eec85d081a21}" />
+    <GuidSymbol name="guidCommands" value="{b4bec21a-986e-49ba-b84d-282beee14e65}"><IDSymbol name="MainGroup" value="0x1020" /><IDSymbol name="ShowExplorer" value="0x0100" /><IDSymbol name="CreateProject" value="0x0101" /></GuidSymbol>
+  </Symbols>
+</CommandTable>

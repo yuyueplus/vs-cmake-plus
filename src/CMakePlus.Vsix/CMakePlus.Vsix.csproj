@@ -1,0 +1,38 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.WindowsDesktop" />
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>CMakePlus</AssemblyName>
+    <RootNamespace>CMakePlus</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>true</IncludeDebugSymbolsInVSIXContainer>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <UseCodebase>true</UseCodebase>
+    <DeployExtension>false</DeployExtension>
+    <CreateVsixContainer>true</CreateVsixContainer>
+    <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <VsixType>v3</VsixType>
+    <Version>0.8.1</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Design" />
+    <Reference Include="Microsoft.VisualBasic" />
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.VSIntegration" Version="17.12.19" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="17.14.40264" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Composition" Version="17.13.41" ExcludeAssets="runtime" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2142" PrivateAssets="all" GeneratePathProperty="true" />
+    <ProjectReference Include="..\CMakePlus.Core\CMakePlus.Core.csproj" />
+    <VSCTCompile Include="Commands.vsct"><ResourceName>Menus.ctmenu</ResourceName></VSCTCompile>
+    <None Update="source.extension.vsixmanifest"><SubType>Designer</SubType></None>
+    <Content Include="$(PkgNewtonsoft_Json)\lib\net45\Newtonsoft.Json.dll" Condition="Exists('$(PkgNewtonsoft_Json)\lib\net45\Newtonsoft.Json.dll')"><Link>Newtonsoft.Json.dll</Link><IncludeInVSIX>true</IncludeInVSIX></Content>
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.WindowsDesktop" />
+  <Import Project="$(PkgMicrosoft_VSSDK_BuildTools)\tools\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(PkgMicrosoft_VSSDK_BuildTools)\tools\VSSDK\Microsoft.VsSDK.targets')" />
+</Project>

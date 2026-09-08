@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/CMakePlus.Core/CMakePlus.Core.csproj" />
+    <Compile Include="../../src/CMakePlus.Vsix/TargetNode.cs" Link="TargetNode.cs" />
+    <Compile Include="../../src/CMakePlus.Vsix/FileNode.cs" Link="FileNode.cs" />
+  </ItemGroup>
+</Project>
